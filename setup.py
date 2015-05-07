@@ -9,7 +9,7 @@ os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 
 setup(
     name='django-contact-form-site',
-    version='0.1',
+    version='0.1.1',
     packages=find_packages(),
     url='http://github.com/arkanister/django-contact-form-site',
     license='BSD',
