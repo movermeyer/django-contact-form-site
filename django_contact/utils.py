@@ -1,4 +1,5 @@
 from importlib import import_module
+from django_contact.settings import CONTACT_FORM
 
 
 def import_form_class(module):
@@ -30,3 +31,7 @@ def get_object_or_none(klass, *args, **kwargs):
         return queryset.get(*args, **kwargs)
     except queryset.model.DoesNotExist:
         return None
+
+
+def get_contact_form_class():
+    return import_form_class(CONTACT_FORM)

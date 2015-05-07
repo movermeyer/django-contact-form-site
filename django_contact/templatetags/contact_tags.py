@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 from __future__ import with_statement
+from django.core.exceptions import ImproperlyConfigured
 from django.template.base import (Node, Library, TemplateSyntaxError)
 from django.template.loader import get_template
-from django_contact.models import ContactForm
-from django_contact.utils import get_object_or_none
+from django_contact.utils import get_contact_form_class
+from django_contact import settings
 
 import re
 
@@ -14,47 +15,46 @@ kwarg_re = re.compile(r"(?:(\w+)=)?(.+)")
 
 
 class ShowContactForm(Node):
-    def __init__(self, contact_slug, template=None):
-        self.contact_slug = contact_slug
-        self.template = template or "django_contact/contact_form.html"
 
-    def get_contact_instance(self, context):
-        contact_slug = self.contact_slug.resolve(context)
-        return get_object_or_none(ContactForm, slug=contact_slug)
+    def __init__(self, template=None):
+        self.template = template or settings.CONTACT_FORM_TEMPLATE
 
     def render(self, context):
         try:
             template = self.template.resolve(context)
         except:
             template = self.template
+
+        if not 'request' in context:
+            raise ImproperlyConfigured("'request' must be supplied")
+
+        self.request = context['request']
+
         c = self.get_context(context)
         t = get_template(template)
         return t.render(c)
 
+    def get_form_class(self):
+        return get_contact_form_class()
+
+    def get_form_kwargs(self):
+        return {"request": self.request}
+
+    def get_form(self, form_class):
+        return form_class(**self.get_form_kwargs())
+
     def get_context(self, context):
-        if not 'request' in context:
-            raise TypeError("Keyword argument 'request' must be supplied")
-        request = context['request']
-        contact_instance = self.get_contact_instance(context)
-        if contact_instance is not None:
-            form_class = contact_instance.get_form_class()
-            form = form_class(request=request)
-            context.update({'form': form})
+        context.update({
+            "form": self.get_form(self.get_form_class())
+        })
         return context
 
 
 @register.tag(name="show_contact_form")
 def do_show_contact_form(parser, token):
     bits = token.split_contents()
-    if len(bits) < 2:
-        raise TemplateSyntaxError("'%s' takes at least one argument"
-                                  " (title and url)" % bits[0])
-
-    contact_slug = parser.compile_filter(bits[1])
-    bits = bits[1:]
-
+    tag = bits.pop(0)
     kwargs = {}
-
     if len(bits):
         for bit in bits:
             match = kwarg_re.match(bit)
@@ -65,4 +65,4 @@ def do_show_contact_form(parser, token):
                 kwargs[name] = parser.compile_filter(value)
 
     template = kwargs.get('template')
-    return ShowContactForm(contact_slug, template)
+    return ShowContactForm(template=template)

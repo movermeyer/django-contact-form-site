@@ -10,14 +10,15 @@ from django.core.urlresolvers import reverse_lazy
 from django.template import loader
 from django.template import RequestContext
 from django.contrib.sites.models import RequestSite
-from django.contrib.sites.models import Site
-from django_contact.models import ContactForm as ModelContactForm
+from django.utils.translation import ugettext_lazy as _
+from django_contact.models import ContactConfig, get_current_contact_config
 
 try:
     from ckeditor.widgets import CKEditorWidget
     html_widget = CKEditorWidget
 except ImportError:
     html_widget = forms.Textarea
+
 
 class ContactForm(forms.Form):
     """
@@ -135,14 +136,11 @@ class ContactForm(forms.Form):
             raise TypeError("Keyword argument 'request' must be supplied")
         super(ContactForm, self).__init__(data=data, files=files, *args, **kwargs)
         self.request = request
+        self.config = get_current_contact_config()
 
-        self.fields['contact_slug'].initial = self.contact_instance.slug
-
-    contact_slug = forms.CharField(max_length=100, widget=forms.HiddenInput)
-
-    name = forms.CharField(max_length=100, label=u'Your name')
-    email = forms.EmailField(max_length=200, label=u'Your email address')
-    body = forms.CharField(widget=forms.Textarea, label=u'Your message')
+    name = forms.CharField(max_length=100, label=_(u'Your name'))
+    email = forms.EmailField(max_length=200, label=_(u'Your email address'))
+    body = forms.CharField(widget=forms.Textarea, label=_(u'Your message'))
 
     absolute_url = reverse_lazy('contact_form')
 
@@ -151,7 +149,7 @@ class ContactForm(forms.Form):
         Render the body of the message to a string.
         
         """
-        template = loader.get_template_from_string(self.contact_instance.email_text_content)
+        template = loader.get_template_from_string(self.config.email_text_content)
         return template.render(self.get_context())
 
     def html_message(self):
@@ -159,22 +157,22 @@ class ContactForm(forms.Form):
         Render the body of the message to a string.
 
         """
-        template = loader.get_template_from_string(self.contact_instance.email_html_content)
+        template = loader.get_template_from_string(self.config.email_html_content)
         return template.render(self.get_context())
     
     def subject(self):
         """
         Render the subject of the message to a string.
         """
-        template = loader.get_template_from_string(self.contact_instance.email_subject)
+        template = loader.get_template_from_string(self.config.email_subject)
         subject = template.render(self.get_context())
         return ''.join(subject.splitlines())
 
     def from_email(self):
-        return self.contact_instance.auth_email_user
+        return self.config.auth_email_user
 
     def recipient_list(self):
-        return self.contact_instance.recipient_list.split(',')
+        return self.config.get_recipient_list()
 
     def get_context(self):
         """
@@ -194,13 +192,7 @@ class ContactForm(forms.Form):
         """
         if not self.is_valid():
             raise ValueError("Cannot generate Context from invalid contact form")
-        if Site._meta.installed:
-            site = Site.objects.get_current()
-        else:
-            site = RequestSite(self.request)
-        return RequestContext(self.request,
-                              dict(self.cleaned_data,
-                                   site=site))
+        return RequestContext(self.request, dict(self.cleaned_data, site=RequestSite(self.request)))
 
     def get_message_dict(self):
         """
@@ -230,11 +222,10 @@ class ContactForm(forms.Form):
     def save(self, fail_silently=False):
         """
         Build and send the email message.
-        
         """
         send_mail(
             fail_silently=fail_silently,
-            connection=self.contact_instance.get_email_connection(),
+            connection=self.config.get_email_connection(),
             **self.get_message_dict())
 
     def get_absolute_url(self):
@@ -244,19 +235,23 @@ class ContactForm(forms.Form):
 MANAGERS = [manager[1] for manager in getattr(settings, 'MANAGERS', [])]
 
 
-class AdminContactForm(forms.ModelForm):
+class ContactConfigForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
-        base_initial = {
-            'recipient_list': ','.join(MANAGERS),
-            'auth_email_user': getattr(settings, 'EMAIL_HOST_USER', None),
-            'auth_email_host': getattr(settings, 'EMAIL_HOST', None)
-        }
-        initial = kwargs.pop('initial', {})
-        base_initial.update(initial)
-        super(AdminContactForm, self).__init__(initial=base_initial, *args, **kwargs)
+        base_initial = {}
+        if not kwargs.get('instance', None):
+            base_initial = {
+                'recipient_list': ','.join(MANAGERS),
+                'auth_email_user': getattr(settings, 'EMAIL_HOST_USER', None),
+                'auth_email_host': getattr(settings, 'EMAIL_HOST', None),
+                'auth_email_port': getattr(settings, 'EMAIL_PORT', 3306),
+                'auth_email_use_tls': getattr(settings, 'EMAIL_USE_TLS', False),
+            }
+            initial = kwargs.pop('initial', {})
+            base_initial.update(initial)
+        super(ContactConfigForm, self).__init__(initial=base_initial, *args, **kwargs)
 
     class Meta:
-        model = ModelContactForm
+        model = ContactConfig
         widgets = {
             'email_html_content': html_widget,
             'auth_email_password': forms.PasswordInput(render_value=True)

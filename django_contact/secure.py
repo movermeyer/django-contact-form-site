@@ -2,7 +2,7 @@
 import hashlib
 from base64 import b64decode
 from django.db import models
-from django.utils.translation import ugettext as _
+from django.utils.translation import ugettext_lazy as _
 from pyDes import triple_des, ECB, PAD_PKCS5
 
 
@@ -37,14 +37,17 @@ class MD5Field(models.CharField):
 
     def get_prep_value(self, value):
         value = super(MD5Field, self).get_prep_value(value)
-        if value.startswith('md5:'):
-            return value
-        return "md5:" + md5.encrypt(self.to_python(value))
+        if value is not None:
+            if value.startswith('md5:'):
+                return value
+            return "md5:" + md5.encrypt(self.to_python(value))
+        return value
 
     def to_python(self, value):
-        if value.startswith('md5:'):
-            value = value.replace("md5:", "")
-            value = md5.decrypt(value)
+        if value is not None:
+            if value.startswith('md5:'):
+                value = value.replace("md5:", "")
+                value = md5.decrypt(value)
         return value
 
     def value_from_object(self, obj):

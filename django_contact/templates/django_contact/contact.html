@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div id="contact">
+
+    <form class="form-horizontal" action="{{ form.get_absolute_url }}" method="post">
+        {% csrf_token %}
+        {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+
+        {% for field in form.visible_fields %}
+        <div class="form-group{% if field.errors %} has-error{% endif %}">
+
+            <label class="control-label col-xs-3" for="{{ field.id_for_label }}">
+                {{ field.label }}
+            </label>
+
+            <div class="col-xs-9">
+                {{ field }}
+                {% for error in field.errors %}<div class="help_block">{{ error }}</div>{% endfor %}
+            </div>
+
+        </div>
+        {% endfor %}
+
+        <div class="form-buttons col-xs-offset-3">
+
+            <button type="submit" class="btn btn-default">Enviar</button>
+            <button type="reset" class="btn btn-default">Limpar</button>
+
+        </div>
+
+    </form>
+
+</div>
+{% endblock content %}

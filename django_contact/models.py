@@ -1,29 +1,20 @@
+from django.core.exceptions import ImproperlyConfigured
 from django.core.mail import get_connection
 from django.db import models
-from django.conf import settings as django_settings
-from django.utils.translation import ugettext as _
+from django.utils.translation import ugettext_lazy as _
 
 from django_contact.secure import MD5Field
-from django_contact.settings import CONTACT_FORM
-from django_contact.utils import import_form_class
+from django_contact import settings
 
 
-class ContactForm(models.Model):
-    name = models.CharField(
-        max_length=100,
-        help_text=_("Name to identify the contact form."))
-    slug = models.SlugField(
-        max_length=100, unique=True,
-        help_text=_("Unique name to retrieve the form in rendering the tag 'show_contact_form'."))
+class ContactConfig(models.Model):
 
-    form = models.CharField(
-        max_length=255, choices=CONTACT_FORM,
-        default='django_contact.forms.ContactForm',
-        help_text=_("Form the class path to be used when sending contact."))
+    sent_url_redirect = models.CharField(
+        max_length=255, default="/",
+        help_text=_("Redirect page after sending the email. Only to non-ajax requests."))
 
     # email auth
     auth_email_user = models.EmailField(
-        default=getattr(django_settings, 'EMAIL_HOST_USER', None),
         help_text=_("User to authenticate to the SMTP server."))
     auth_email_password = MD5Field(
         max_length=50,
@@ -32,10 +23,10 @@ class ContactForm(models.Model):
         max_length=50,
         help_text=_("Host SMTP authentication server."))
     auth_email_port = models.PositiveIntegerField(
-        default=getattr(django_settings, 'EMAIL_PORT', 3306),
+        default=3306,
         help_text=_("Port SMTP authentication server. Default 3306."))
     auth_email_use_tls = models.BooleanField(
-        default=getattr(django_settings, 'EMAIL_USE_TLS', False),
+        default=False,
         help_text=_("The SMTP server uses TLS (Transport Layer Security)."))
 
     recipient_list = models.CharField(
@@ -49,6 +40,13 @@ class ContactForm(models.Model):
     email_html_content = models.TextField(help_text=_("HTML content of the email being sent."))
     email_text_content = models.TextField(help_text=_("Plain Text content of the email being sent."))
 
+    def get_recipient_list(self):
+        # normalize and get recipient_list
+        recipient_list = self.recipient_list.replace(' ,', ',')
+        recipient_list = recipient_list.replace(', ', ',')
+        recipient_list = recipient_list.replace(' , ', ',')
+        return recipient_list.split(",")
+
     def get_email_connection(self, fail_silently=False):
         return get_connection(
             username=self.auth_email_user,
@@ -58,8 +56,13 @@ class ContactForm(models.Model):
             use_tls=self.auth_email_use_tls,
             fail_silently=fail_silently)
 
-    def get_form_class(self):
-        form_class = import_form_class(self.form)
-        # bind with this model
-        setattr(form_class, 'contact_instance', self)
-        return form_class
+    class Meta:
+        verbose_name = "Contact Config"
+        verbose_name_plural = "Contacts Config"
+
+
+def get_current_contact_config():
+    try:
+        return ContactConfig.objects.get(pk=settings.CONTACT_ID)
+    except ContactConfig.DoesNotExist:
+        raise ImproperlyConfigured("Please set the contact settings in Django admin.")

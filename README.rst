@@ -21,6 +21,7 @@ Installation
 
 1. Install with pip or easy install (All dependencies will be installed automatically)::
 
+    pip install http://twhiteman.netfirms.com/pyDES/pyDes-2.0.1.zip  # secure engine
     pip install django-contact-form-site
 
 2. Add ``django_contact`` to your INSTALLED_APPS and all the plugins you want, setting like this::
@@ -47,5 +48,6 @@ Installation
 
 4. Run ``python manage.py syncdb`` or ``python manage.py migrate``.
 
-5. Be Happy :)
+5. Create a contact config in django admin.
 
+6. Be Happy :)
