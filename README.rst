@@ -1,10 +1,10 @@
 .. image:: https://travis-ci.org/arkanister/django-contact-form-site.svg?branch=master
     :target: https://travis-ci.org/arkanister/django-contact-form-site
 
-.. image:: https://pypip.in/v/django-contact-form-site/badge.png
+.. image:: https://img.shields.io/pypi/v/django-contact-form-site.svg
    :target: https://pypi.python.org/pypi/django-contact-form-site
 
-.. image:: https://pypip.in/d/django-contact-form-site/badge.png
+.. image:: https://img.shields.io/pypi/dm/django-contact-form-site.svg
    :target: https://pypi.python.org/pypi/django-contact-form-site
    
 .. image:: https://badge.waffle.io/arkanister/django-contact-form-site.svg?label=ready&title=Ready
